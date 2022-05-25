@@ -5,9 +5,7 @@ module Administrate
     def index
       authorize_resource(resource_class)
       search_term = params[:search].to_s.strip
-      resources = Administrate::Search.new(scoped_resource,
-                                           dashboard_class,
-                                           search_term).run
+      resources = filter_resources(scoped_resource, search_term: search_term)
       resources = apply_collection_includes(resources)
       resources = order.apply(resources)
       resources = resources.page(params[:_page]).per(records_per_page)
@@ -47,7 +45,7 @@ module Administrate
 
       if resource.save
         redirect_to(
-          [namespace, resource],
+          after_resource_created_path(resource),
           notice: translate_with_resource("create.success"),
         )
       else
@@ -60,7 +58,7 @@ module Administrate
     def update
       if requested_resource.update(resource_params)
         redirect_to(
-          [namespace, requested_resource],
+          after_resource_updated_path(requested_resource),
           notice: translate_with_resource("update.success"),
         )
       else
@@ -76,25 +74,44 @@ module Administrate
       else
         flash[:error] = requested_resource.errors.full_messages.join("<br/>")
       end
-      redirect_to action: :index
+      redirect_to after_resource_destroyed_path(requested_resource)
     end
 
     private
 
+    def filter_resources(resources, search_term:)
+      Administrate::Search.new(
+        resources,
+        dashboard,
+        search_term,
+      ).run
+    end
+
+    def after_resource_destroyed_path(_requested_resource)
+      { action: :index }
+    end
+
+    def after_resource_created_path(requested_resource)
+      [namespace, requested_resource]
+    end
+
+    def after_resource_updated_path(requested_resource)
+      [namespace, requested_resource]
+    end
+
     helper_method :nav_link_state
     def nav_link_state(resource)
-      resource_name.to_s.pluralize == resource.to_s ? :active : :inactive
+      underscore_resource = resource.to_s.split("/").join("__")
+      resource_name.to_s.pluralize == underscore_resource ? :active : :inactive
     end
 
     helper_method :valid_action?
     def valid_action?(name, resource = resource_class)
-      !!routes.detect do |controller, action|
-        controller == resource.to_s.underscore.pluralize && action == name.to_s
-      end
+      routes.include?([resource.to_s.underscore.pluralize, name.to_s])
     end
 
     def routes
-      @routes ||= Namespace.new(namespace).routes
+      @routes ||= Namespace.new(namespace).routes.to_set
     end
 
     def records_per_page

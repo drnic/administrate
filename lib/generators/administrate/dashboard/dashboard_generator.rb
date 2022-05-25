@@ -65,9 +65,22 @@ module Administrate
       end
 
       def attributes
-        klass.reflections.keys +
+        attrs = (
+          klass.reflections.keys +
           klass.attribute_names -
           redundant_attributes
+        )
+
+        primary_key = attrs.delete(klass.primary_key)
+        created_at = attrs.delete("created_at")
+        updated_at = attrs.delete("updated_at")
+
+        [
+          primary_key,
+          *attrs.sort,
+          created_at,
+          updated_at,
+        ].compact
       end
 
       def form_attributes

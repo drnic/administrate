@@ -4,14 +4,15 @@ require "active_support/core_ext/object/blank"
 module Administrate
   class Search
     class Query
-      attr_reader :filters
+      attr_reader :filters, :valid_filters
 
       def blank?
         terms.blank? && filters.empty?
       end
 
-      def initialize(original_query)
+      def initialize(original_query, valid_filters = nil)
         @original_query = original_query
+        @valid_filters = valid_filters
         @filters, @terms = parse_query(original_query)
       end
 
@@ -30,7 +31,7 @@ module Administrate
       private
 
       def filter?(word)
-        word.match?(/^\w+:$/)
+        valid_filters&.any? { |filter| word.match?(/^#{filter}:\w*$/) }
       end
 
       def parse_query(query)
@@ -38,7 +39,7 @@ module Administrate
         terms = []
         query.to_s.split.each do |word|
           if filter?(word)
-            filters << word.split(":").first
+            filters << word
           else
             terms << word
           end
@@ -47,10 +48,10 @@ module Administrate
       end
     end
 
-    def initialize(scoped_resource, dashboard_class, term)
-      @dashboard_class = dashboard_class
+    def initialize(scoped_resource, dashboard, term)
+      @dashboard = dashboard
       @scoped_resource = scoped_resource
-      @query = Query.new(term)
+      @query = Query.new(term, valid_filters.keys)
     end
 
     def run
@@ -65,15 +66,20 @@ module Administrate
 
     private
 
-    def apply_filter(filter, resources)
+    def apply_filter(filter, filter_param, resources)
       return resources unless filter
-      filter.call(resources)
+      if filter.parameters.size == 1
+        filter.call(resources)
+      else
+        filter.call(resources, filter_param)
+      end
     end
 
     def filter_results(resources)
-      query.filters.each do |filter_name|
+      query.filters.each do |filter_query|
+        filter_name, filter_param = filter_query.split(":")
         filter = valid_filters[filter_name]
-        resources = apply_filter(filter, resources)
+        resources = apply_filter(filter, filter_param, resources)
       end
       resources
     end
@@ -102,9 +108,7 @@ module Administrate
     end
 
     def search_attributes
-      attribute_types.keys.select do |attribute|
-        attribute_types[attribute].searchable?
-      end
+      @dashboard.search_attributes
     end
 
     def search_results(resources)
@@ -114,15 +118,15 @@ module Administrate
     end
 
     def valid_filters
-      if @dashboard_class.const_defined?(:COLLECTION_FILTERS)
-        @dashboard_class.const_get(:COLLECTION_FILTERS).stringify_keys
+      if @dashboard.class.const_defined?(:COLLECTION_FILTERS)
+        @dashboard.class.const_get(:COLLECTION_FILTERS).stringify_keys
       else
         {}
       end
     end
 
     def attribute_types
-      @dashboard_class::ATTRIBUTE_TYPES
+      @dashboard.class.const_get(:ATTRIBUTE_TYPES)
     end
 
     def query_table_name(attr)

@@ -51,8 +51,16 @@ module Administrate
       attribute_types.keys
     end
 
-    def form_attributes
-      self.class::FORM_ATTRIBUTES
+    def form_attributes(action = nil)
+      specific_form_attributes_for(action) || self.class::FORM_ATTRIBUTES
+    end
+
+    def specific_form_attributes_for(action)
+      return unless action
+
+      cname = "FORM_ATTRIBUTES_#{action.upcase}"
+
+      self.class.const_get(cname) if self.class.const_defined?(cname)
     end
 
     def permitted_attributes
@@ -70,6 +78,12 @@ module Administrate
 
     def collection_attributes
       self.class::COLLECTION_ATTRIBUTES
+    end
+
+    def search_attributes
+      attribute_types.keys.select do |attribute|
+        attribute_types[attribute].searchable?
+      end
     end
 
     def display_resource(resource)
