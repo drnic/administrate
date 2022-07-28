@@ -77,8 +77,9 @@ which are specified through the `.with_options` class method:
 
 **Field::BelongsTo**
 
-`:order` - Specifies the order of the dropdown menu, can be ordered by more
-than one column. e.g.: `"name, email DESC"`.
+`:order` - Specifies the column used to order the records. It will apply both in
+the table views and in the dropdown menu on the record forms.
+You can set multiple columns as well with direction. E.g.: `"name, email DESC"`.
 
 `:scope` - Specifies a custom scope inside a callable. Useful for preloading.
 Example: `.with_options(scope: -> { MyModel.includes(:rel).limit(5) })`
@@ -219,6 +220,17 @@ objects to display as.
 
 `:collection` - Specify the options shown on the select field. It accept either
 an array or an object responding to `:call`. Defaults to `[]`.
+
+To customize option labels, pass an array of pairs where the first element is the value submitted with the form and the second element is the label shown to the user.
+
+For example:
+
+```ruby
+  currency = Field::Select.with_options(
+    collection: [ ['usd', 'Dollar'], ['eur', 'Euro'], ['yen', 'Yen'] ]
+  )
+
+```
 
 `:searchable` - Specify if the attribute should be considered when searching.
 Default is `true`.
