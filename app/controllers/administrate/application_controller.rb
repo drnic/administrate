@@ -8,7 +8,7 @@ module Administrate
       resources = filter_resources(scoped_resource, search_term: search_term)
       resources = apply_collection_includes(resources)
       resources = order.apply(resources)
-      resources = resources.page(params[:_page]).per(records_per_page)
+      resources = paginate_resources(resources)
       page = Administrate::Page::Collection.new(dashboard, order: order)
 
       render locals: {
@@ -119,7 +119,23 @@ module Administrate
     end
 
     def order
-      @order ||= Administrate::Order.new(sorting_attribute, sorting_direction)
+      @order ||= Administrate::Order.new(
+        sorting_attribute,
+        sorting_direction,
+        association_attribute: order_by_field(
+          dashboard_attribute(sorting_attribute),
+        ),
+      )
+    end
+
+    def order_by_field(dashboard)
+      return unless dashboard.try(:options)
+
+      dashboard.options.fetch(:order, nil)
+    end
+
+    def dashboard_attribute(attribute)
+      dashboard.attribute_types[attribute.to_sym] if attribute
     end
 
     def sorting_attribute
@@ -222,6 +238,10 @@ module Administrate
 
     def authorize_resource(resource)
       resource
+    end
+
+    def paginate_resources(resources)
+      resources.page(params[:_page]).per(records_per_page)
     end
   end
 end

@@ -95,7 +95,13 @@ module Administrate
     end
 
     def item_includes
+      # Deprecated, internal usage has moved to #item_associations
+      Administrate.warn_of_deprecated_method(self.class, :item_includes)
       attribute_includes(show_page_attributes)
+    end
+
+    def item_associations
+      attribute_associated(show_page_attributes)
     end
 
     private
@@ -105,6 +111,14 @@ module Administrate
     end
 
     def attribute_includes(attributes)
+      attributes.map do |key|
+        field = attribute_type_for(key)
+
+        key if field.eager_load?
+      end.compact
+    end
+
+    def attribute_associated(attributes)
       attributes.map do |key|
         field = attribute_type_for(key)
 

@@ -16,6 +16,10 @@ module Administrate
         self < Associative
       end
 
+      def self.eager_load?
+        false
+      end
+
       def self.searchable?
         false
       end
